@@ -1,0 +1,2 @@
+# No external dependencies — uses Python stdlib only
+# (zoneinfo is built-in since Python 3.9)

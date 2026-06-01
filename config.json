@@ -1,0 +1,12 @@
+{
+    "interval_minutes": 30,
+    "words_per_alert": 3,
+    "start_hour": 10,
+    "end_hour": 23,
+    "enabled": true,
+    "sound": true,
+    "notify_mac": true,
+    "notify_iphone": true,
+    "ntfy_topic": "pte-vocab",
+    "ntfy_server": "https://ntfy.sh"
+}
