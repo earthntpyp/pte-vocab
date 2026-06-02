@@ -16,7 +16,12 @@ INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "30"))
 WORDS_PER_ALERT  = int(os.environ.get("WORDS_PER_ALERT", "3"))
 START_HOUR       = int(os.environ.get("START_HOUR", "10"))
 END_HOUR         = int(os.environ.get("END_HOUR", "23"))
-TIMEZONE         = os.environ.get("TIMEZONE", "Asia/Bangkok")
+TIMEZONE         = os.environ.get("TIMEZONE", "Australia/Melbourne")
+
+# CATEGORIES: comma-separated list, empty = all categories
+# e.g. "บุคลิกลักษณะ,การสื่อสาร,สติปัญญา/การตัดสิน"
+_cats_env = os.environ.get("CATEGORIES", "").strip()
+CATEGORIES: list[str] = [c.strip() for c in _cats_env.split(",") if c.strip()]
 
 # ── Word state (in-memory; resets on redeploy) ────────────────────────────────
 shown_words: set[str] = set()
@@ -49,20 +54,30 @@ def pick_words(n: int) -> list[dict]:
     from vocab_data import PTE_VOCABULARY
     from vocab_meta import VOCAB_META
 
-    unseen = [w for w in PTE_VOCABULARY if w["word"] not in shown_words]
-    if len(unseen) < n:
-        shown_words = set()
-        unseen = list(PTE_VOCABULARY)
-        print("[info] All words covered — starting new cycle.")
-
-    chosen = random.sample(unseen, min(n, len(unseen)))
-    shown_words.update(w["word"] for w in chosen)
-
-    for w in chosen:
+    # attach meta to all words first
+    pool = []
+    for w in PTE_VOCABULARY:
         meta = VOCAB_META.get(w["word"], {})
         w["pron"] = meta.get("pron", "")
         w["pos"]  = meta.get("pos", "")
         w["cat"]  = meta.get("cat", "")
+        pool.append(w)
+
+    # filter by category if specified
+    if CATEGORIES:
+        pool = [w for w in pool if w["cat"] in CATEGORIES]
+        if not pool:
+            print("[warn] No words match CATEGORIES filter — using all words")
+            pool = list(PTE_VOCABULARY)
+
+    unseen = [w for w in pool if w["word"] not in shown_words]
+    if len(unseen) < n:
+        shown_words = set()
+        unseen = list(pool)
+        print("[info] Cycle complete — starting new cycle.")
+
+    chosen = random.sample(unseen, min(n, len(unseen)))
+    shown_words.update(w["word"] for w in chosen)
     return chosen
 
 # ── Alert sender ──────────────────────────────────────────────────────────────
@@ -98,10 +113,11 @@ def send_alert() -> None:
 def main() -> None:
     print("=" * 50)
     print("PTE Vocab Worker starting on Railway")
-    print(f"  Topic    : {NTFY_TOPIC}")
-    print(f"  Interval : every {INTERVAL_MINUTES} min")
-    print(f"  Hours    : {START_HOUR:02d}:00 – {END_HOUR:02d}:00 ({TIMEZONE})")
-    print(f"  Words    : {WORDS_PER_ALERT} per alert")
+    print(f"  Topic      : {NTFY_TOPIC}")
+    print(f"  Interval   : every {INTERVAL_MINUTES} min")
+    print(f"  Hours      : {START_HOUR:02d}:00 – {END_HOUR:02d}:00 ({TIMEZONE})")
+    print(f"  Words      : {WORDS_PER_ALERT} per alert")
+    print(f"  Categories : {', '.join(CATEGORIES) if CATEGORIES else 'ทั้งหมด (all)'}")
     print("=" * 50)
 
     # Send one alert immediately on startup (so you know it works)
