@@ -1,6 +1,6 @@
 {
     "interval_minutes": 30,
-    "words_per_alert": 3,
+    "words_per_alert": 1,
     "start_hour": 10,
     "end_hour": 23,
     "enabled": true,
